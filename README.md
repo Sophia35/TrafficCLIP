@@ -26,7 +26,7 @@ python train.py
 ```
 
 ## Experiments on CCD Video Dataset
-We further validated TrafficCLIP on the CCD video dataset. In this setting, a Transformer with learnable position embeddings was added after the classification path.  
+We further validated TrafficCLIP on the CCD video dataset. In this setting, a Transformer with learnable position embeddings was added after the classification path. For evaluation, we report the Average Precision (AP) to measure video-level accident detection performance.
 For convenience, we extracted the CLIP features of the CCD dataset and provided them at the following link: [Google Drive link](https://drive.google.com/file/d/1cW6r2ItTpf0pjLc8bpcVvIVlVa-YIL_W/view?usp=sharing)
 ### Run TrafficCLIP on Video
 Quick start (use the pre-trained weights)
