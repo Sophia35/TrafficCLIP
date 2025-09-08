@@ -10,8 +10,8 @@ To address this, we construct a fine-grained accident dataset with accident mask
 
 ## How to Run
 ### Prepare your dataset
-Download our fine-grained traffic accident dataset from the following Google Drive links:
-https://drive.google.com/file/d/1snuQ5fn0FA9rEKhvWrBzKqdnwkxYj_7e/view?usp=sharing
+Download our fine-grained traffic accident dataset from the following Google Drive link and place it under `TrafficCLIP/accident`:
+[Google Drive Link](https://drive.google.com/file/d/1snuQ5fn0FA9rEKhvWrBzKqdnwkxYj_7e/view?usp=sharing)
 ### Run TrafficCLIP
 
 
