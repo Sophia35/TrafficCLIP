@@ -46,5 +46,5 @@ class accidentSolver(object):
 
 
 if __name__ == '__main__':
-    runner = accidentSolver(root='C:/Users/pc/Desktop/accident')
+    runner = accidentSolver(root='C:/Users/pc/Desktop/CLIP-main/accident')
     runner.run()
