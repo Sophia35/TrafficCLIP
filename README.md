@@ -9,7 +9,7 @@ To address this, we construct a fine-grained accident dataset with accident mask
 ![overview](https://github.com/Sophia35/TrafficCLIP/blob/main/TrafficCLIP.png)
 
 ## How to Run
-### Prepare your dataset
+### Prepare dataset
 Download our fine-grained traffic accident dataset from the following Google Drive link and place it under `TrafficCLIP/accident/`:
 [Google Drive Link](https://drive.google.com/file/d/1snuQ5fn0FA9rEKhvWrBzKqdnwkxYj_7e/view?usp=sharing)
 ### Run TrafficCLIP
