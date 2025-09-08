@@ -2,16 +2,15 @@ import argparse
 import torch
 import numpy as np
 import random
-from utils.logger import get_logger
+from logger import get_logger
 import TrafficCLIP_lib
-from utils.utils import get_transform
+from utils import get_transform
 from dataset import Dataset
 from tqdm import tqdm
 from tabulate import tabulate
 from scipy.ndimage import gaussian_filter
-from utils.metrics import image_level_metrics, pixel_level_metrics
+from metrics import image_level_metrics, pixel_level_metrics
 from prompt_ensemble import TrafficCLIP_PromptLearner
-from utils.visualization import visualizer
 import time
 
 
@@ -119,7 +118,6 @@ def test(args):
             anomaly_map = torch.stack(
                 [torch.from_numpy(gaussian_filter(i, sigma=args.sigma)) for i in anomaly_map.detach().cpu().to(torch.float32)], dim=0)
             results[cls_name[0]]['anomaly_maps'].append(anomaly_map)
-            #image_path = items['img_path'][0]
             #counter=visualizer(image.detach().cpu().numpy(), anomaly_map.detach().cpu().numpy(), args.image_size, args.save_path,counter,text_probs.detach().cpu(), image_path)
     end_time = time.time()
     total_time = end_time - start_time
@@ -200,14 +198,12 @@ def test(args):
 
 
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("TrafficCLIP", add_help=True)
     # paths
     parser.add_argument("--data_path", type=str, default="./accident", help="path to test dataset")
     parser.add_argument("--save_path", type=str, default='./results/', help='path to save results')
-    parser.add_argument("--checkpoint_path", type=str, default='./checkpoints/train/epoch_15.pth',
+    parser.add_argument("--checkpoint_path", type=str, default='./checkpoints/train-fine-grained-dataset/epoch_15.pth',
                         help='path to checkpoint')
     # model
     parser.add_argument("--dataset", type=str, default='accident')

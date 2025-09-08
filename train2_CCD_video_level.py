@@ -43,21 +43,6 @@ def setup_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
-def load_ccd_frame_labels(path_txt):
-    video_to_gt = {}
-    with open(path_txt, "r") as f:
-        for line in f:
-            line = line.strip()
-            first_comma = line.find(',')
-            vid = line[:first_comma]  # 如 "000001"
-            # 从第一个逗号后开始找第一个 ']'，表示 frame label 结束
-            rest = line[first_comma + 1:]
-            end_of_label = rest.find(']') + 1  # 找到 ']' 结束的位置
-            label_str = rest[:end_of_label]  # 截取 "[0, 0, ..., 1]"
-            frame_labels = eval(label_str)  # 转为列表
-            video_to_gt[vid] = frame_labels
-    return video_to_gt
-
 
 def train2(args):
     logger = get_logger(args.save_path)
@@ -65,7 +50,7 @@ def train2(args):
 
     # Load CLIP model and prompt learner
     TrafficCLIP_parameters = {"Prompt_length": args.n_ctx}
-    model, _ = TrafficCLIP_lib.load("ViT-L/14@336px", device=device, jit=False)
+    model, _ = TrafficCLIP_lib.load("ViT-L/14@336px", device=device, jit=False,details="video")
     model = model.float().eval()
     prompt_learner = TrafficCLIP_PromptLearner(model.to("cpu"), TrafficCLIP_parameters)
     checkpoint = torch.load(args.checkpoint_path)
@@ -178,7 +163,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("TrafficCLIP", add_help=True)
     parser.add_argument("--train_data_path", type=str, default="./accident", help="train dataset path")
     parser.add_argument("--save_path", type=str, default='./checkpoints/train-CCD-video', help='path to save results')
-    parser.add_argument("--checkpoint_path", type=str, default='./checkpoints/train/epoch_15.pth',
+    parser.add_argument("--checkpoint_path", type=str, default='./checkpoints/train-fine-grained-dataset/epoch_15.pth',
                         help='path to checkpoint')
     parser.add_argument("--train_csv_path", type=str, default='./CCD_feature_train.csv')
     parser.add_argument("--dataset", type=str, default='accident', help="train dataset name")

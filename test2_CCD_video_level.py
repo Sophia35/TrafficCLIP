@@ -122,6 +122,8 @@ def evaluation(all_pred, all_labels, time_of_accidents, fps=20.0):
     for i in range(1,len(new_Precision)):
         AP += (new_Precision[i-1]+new_Precision[i])*(new_Recall[i]-new_Recall[i-1])/2
 
+    '''
+    # zero-shot setting 
     # transform the relative mTTA to seconds
     mTTA = np.mean(new_Time) * total_seconds
     print("Average Precision= %.4f, mean Time to accident= %.4f"%(AP, mTTA))
@@ -129,8 +131,9 @@ def evaluation(all_pred, all_labels, time_of_accidents, fps=20.0):
     sort_recall = np.sort(new_Recall)
     TTA_R80 = sort_time[np.argmin(np.abs(sort_recall-0.8))] * total_seconds
     print("Recall@80%, Time to accident= " +"{:.4}".format(TTA_R80))
+    '''
 
-    return AP, mTTA, TTA_R80
+    return AP
 
 
 def test2_CCD(args):
@@ -139,15 +142,16 @@ def test2_CCD(args):
 
     # Load model and prompt learner
     TrafficCLIP_parameters = {"Prompt_length": args.n_ctx}
-    model, _ = TrafficCLIP_lib.load("ViT-L/14@336px", device=device, jit=False)
+    model, _ = TrafficCLIP_lib.load("ViT-L/14@336px", device=device, jit=False,details="video")
     model = model.float().eval()
     prompt_learner = TrafficCLIP_PromptLearner(model.to("cpu"), TrafficCLIP_parameters)
 
     # 加载 checkpoint
     checkpoint1 = torch.load(args.checkpoint_path1, map_location=device)
-    checkpoint2 = torch.load(args.checkpoint_path2, map_location=device)
     prompt_learner.load_state_dict(checkpoint1["prompt_learner"])
+    checkpoint2 = torch.load(args.checkpoint_path2, map_location=device)
     model.frame_position_embeddings.load_state_dict(checkpoint2["frame_position_embeddings"])
+
     prompt_learner.to(device)
     model.to(device)
 
@@ -158,7 +162,7 @@ def test2_CCD(args):
 
     all_preds = []  # shape: (N, T)
     all_gts = []    # shape: (N,)
-    toa_list = []   # 每个正样本的事故帧（tau）
+    toa_list = []
 
     with torch.no_grad():
         for video_path, label_str in tqdm(video_paths_and_labels):
@@ -186,18 +190,16 @@ def test2_CCD(args):
 
             all_preds.append(pred)
             all_gts.append(label)
-            toa_list.append(40 if label == 1 else 0)  # CCD 数据集中，40帧表示事故发生帧
+            toa_list.append(40 if label == 1 else 0)  # In the CCD dataset, frame 40 indicates the accident occurrence frame
 
-    # 转为 numpy 数组用于评估
+
     all_preds_np = np.stack([np.pad(p, (0, 50 - len(p))) if len(p) < 50 else p[:50] for p in all_preds])  # shape: [N, 50]
     all_gts_np = np.array(all_gts)
     toa_np = np.array(toa_list)
-    # 评估 AP, mTTA, TTA@80%
-    AP, mTTA, TTA_R80 = evaluation(all_preds_np, all_gts_np, toa_np, fps=10.0)
-
+    # AP
+    AP = evaluation(all_preds_np, all_gts_np, toa_np, fps=10.0)
     logger.info(f"Average Precision (AP): {AP:.4f}")
-    logger.info(f"Mean Time to Accident (mTTA): {mTTA:.4f} seconds")
-    logger.info(f"Time to Accident at Recall 80% (TTA@R80): {TTA_R80:.4f} seconds")
+
 
 
 
@@ -206,9 +208,9 @@ if __name__ == '__main__':
     # paths
     parser.add_argument("--data_path", type=str, default="./accident", help="path to test dataset")
     parser.add_argument("--save_path", type=str, default='./results/', help='path to save results')
-    parser.add_argument("--checkpoint_path1", type=str, default='./checkpoints/train/epoch_15.pth',
+    parser.add_argument("--checkpoint_path1", type=str, default='./checkpoints/train-fine-grained-dataset/epoch_15.pth',
                         help='path to checkpoint')
-    parser.add_argument("--checkpoint_path2", type=str, default='./checkpoints/train-CCD-video/epoch_1.pth',
+    parser.add_argument("--checkpoint_path2", type=str, default='./checkpoints/train-CCD-video/epoch_10.pth',
                         help='path to checkpoint')
     parser.add_argument("--test_csv_path", type=str, default='./CCD_feature_test.csv')
     # model

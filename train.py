@@ -2,15 +2,14 @@ import torch
 import argparse
 import torch.nn.functional as F
 from prompt_ensemble import TrafficCLIP_PromptLearner
-from utils.loss import FocalLoss, BinaryDiceLoss
-from utils.utils import normalize
+from loss import FocalLoss, BinaryDiceLoss
 from dataset import Dataset
-from utils.logger import get_logger
+from logger import get_logger
 from tqdm import tqdm
 import numpy as np
 import os
 import random
-from utils.utils import get_transform
+from utils import get_transform
 import TrafficCLIP_lib
 torch.cuda.empty_cache()
 
@@ -77,9 +76,7 @@ def train(args):
                 #print("image feature shape: ",image_features.shape) #[B,768]
                 image_features = image_features / image_features.norm(dim=-1, keepdim=True)
 
-            ####################################
-            #prompts, tokenized_prompts,compound_prompts_text = prompt_learner(cls_id = None)
-            prompts, tokenized_prompts= prompt_learner(cls_id=None)#[2,77,768]
+            prompts, tokenized_prompts= prompt_learner(cls_id=None) #[2,77,768]
             text_features = model.encode_text_learn(prompts, tokenized_prompts).float() #[2,768]
             text_features = torch.stack(torch.chunk(text_features, dim = 0, chunks = 2), dim = 1)
             text_features = text_features/text_features.norm(dim=-1, keepdim=True) #[1,2,768]
@@ -87,20 +84,18 @@ def train(args):
             text_probs = text_probs[:, 0, ...]/0.07
             image_loss = F.cross_entropy(text_probs.squeeze(), label.long().cuda())
             image_loss_list.append(image_loss.item())
-            #########################################################################
+
+
             similarity_map_list = []
-            anomaly_map_list = []
             for idx, patch_feature in enumerate(patch_features):
-                if idx >= args.feature_map_layer[0]:
-                    patch_feature = patch_feature/ patch_feature.norm(dim = -1, keepdim = True)
-                    #patch_feature [8,2026,768]
-                    #text_feaute[0] [2,768]
-                    similarity, _ = compute_similarity(patch_feature, text_features[0])
-                    # similarity [8,2026,2]
-                    # 去掉CLS_TOKEN  再重塑形状
-                    similarity_map = get_similarity_map(similarity[:, 1:, :], args.image_size).permute(0, 3, 1, 2)
-                    # similarity_map [8,2,640,640]
-                    similarity_map_list.append(similarity_map)
+                patch_feature = patch_feature/ patch_feature.norm(dim = -1, keepdim = True)
+                #patch_feature [8,2026,768]
+                #text_feaute[0] [2,768]
+                similarity, _ = compute_similarity(patch_feature, text_features[0])
+                # similarity [8,2026,2]
+                similarity_map = get_similarity_map(similarity[:, 1:, :], args.image_size).permute(0, 3, 1, 2)
+                # similarity_map [8,2,640,640]
+                similarity_map_list.append(similarity_map)
 
             loss = 0
             for i in range(len(similarity_map_list)):
@@ -128,11 +123,9 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("TrafficCLIP", add_help=True)
     parser.add_argument("--train_data_path", type=str, default="./accident", help="train dataset path")
-    parser.add_argument("--save_path", type=str, default='./checkpoints/train', help='path to save results')
-
+    parser.add_argument("--save_path", type=str, default='./checkpoints/train-accidentdataset', help='path to save results')
     parser.add_argument("--dataset", type=str, default='accident', help="train dataset name")
     parser.add_argument("--n_ctx", type=int, default=12, help="learnable token length")
-    parser.add_argument("--feature_map_layer", type=int, nargs="+", default=[0, 1, 2, 3], help="zero shot")
     parser.add_argument("--features_list", type=int, nargs="+", default=[6, 12, 18, 24], help="mid layer")
 
     parser.add_argument("--epoch", type=int, default=15, help="epochs")
