@@ -15,7 +15,7 @@ Download our fine-grained traffic accident dataset from the following Google Dri
 ### Run TrafficCLIP
 Quick start (use the pre-trained weights)
 1. Download the pre-trained weights train-fine-grained-dataset from [Google Drive Link](https://drive.google.com/file/d/1vZMjZAR9vssg9Ev7e7mQS6BrbVwfwUks/view?usp=sharing)
-2. Place the downloaded weights under the directory: TrafficCLIP/checkpoints/
+2. Place the downloaded weights under the directory:`TrafficCLIP/checkpoints`
 3. Run the following command for inference:
 ```bash
 python test.py
