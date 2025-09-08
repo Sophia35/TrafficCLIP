@@ -30,7 +30,7 @@ We further validated TrafficCLIP on the CCD video dataset. In this setting, a Tr
 For convenience, we extracted the CLIP features of the CCD dataset and provided them at the following link: [Google Drive link](https://drive.google.com/file/d/1cW6r2ItTpf0pjLc8bpcVvIVlVa-YIL_W/view?usp=sharing)
 ### Run TrafficCLIP on Video
 Quick start (use the pre-trained weights)
-1. Download the extracted CCD features and update the corresponding paths in `ccd_feature_train.csv` andccd_feature_test.csv.
+1. Download the extracted CCD features and update the corresponding paths in `ccd_feature_train.csv` and `ccd_feature_test.csv`.
 2. Download the pre-trained weights train-CCD-video from [Google Drive Link](https://drive.google.com/file/d/1vZMjZAR9vssg9Ev7e7mQS6BrbVwfwUks/view?usp=sharing). Place the downloaded weights under the directory: `TrafficCLIP/checkpoints/`
 4. Run inference with:
 ```bash
@@ -40,3 +40,4 @@ Run the following command to train：
 ```bash
 python train2_CCD_video_level.py
 ```
+
