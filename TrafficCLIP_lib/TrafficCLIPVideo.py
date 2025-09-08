@@ -245,7 +245,7 @@ class MLP(nn.Module):
         return x
 
 class ResidualAttentionBlock(nn.Module):
-    def __init__(self, d_model: int, n_head: int, attn_mask: torch.Tensor = None):
+    def __init__(self, d_model: int, n_head: int):
         super().__init__()
 
         self.attn = nn.MultiheadAttention(d_model, n_head)
@@ -256,23 +256,23 @@ class ResidualAttentionBlock(nn.Module):
             ("c_proj", nn.Linear(d_model * 4, d_model))
         ]))
         self.ln_2 = LayerNorm(d_model)
-        self.attn_mask = attn_mask
 
-    def attention(self, x: torch.Tensor):
-        self.attn_mask = self.attn_mask.to(dtype=x.dtype, device=x.device) if self.attn_mask is not None else None
+    def attention(self, x: torch.Tensor, attn_mask: torch.Tensor = None):
+        if attn_mask is not None:
+            attn_mask = attn_mask.to(dtype=x.dtype, device=x.device)
         if isinstance(self.attn, Attention):
             x = x.transpose(0, 1)
             x, x_ori = self.attn(x)
             return [x.transpose(0, 1), x_ori.transpose(0, 1)]
         else:
-            return self.attn(x, x, x, need_weights=False, attn_mask=self.attn_mask)[0]
+            return self.attn(x, x, x, need_weights=False, attn_mask=attn_mask)[0]
 
-    def forward(self, x):
+    def forward(self, x , attn_mask: torch.Tensor = None):
         # dual paths for blocks deeper than "d"
         if isinstance(self.attn, Attention):
             if isinstance(x, list):
                 x, x_ori = x
-                x_res = self.attention(self.ln_1(x_ori))
+                x_res = self.attention(self.ln_1(x_ori),attn_mask=attn_mask)
                 x_res, x_ori_res = x_res
                 x_ori += x_ori_res
                 x_ori = x_ori + self.mlp(self.ln_2(x_ori))
@@ -281,7 +281,7 @@ class ResidualAttentionBlock(nn.Module):
 
             # start of dual path
             else:
-                x_res = self.attention(self.ln_1(x))
+                x_res = self.attention(self.ln_1(x),attn_mask=attn_mask)
                 if isinstance(x_res, list):
                     x_res, x_ori_res = x_res
                     x_ori = x + x_ori_res
@@ -290,42 +290,24 @@ class ResidualAttentionBlock(nn.Module):
                     return [x, x_ori]
         # singl path before "d"
         else:
-            x = x + self.attention(self.ln_1(x))
+            x = x + self.attention(self.ln_1(x),attn_mask=attn_mask)
             x = x + self.mlp(self.ln_2(x))
         return x
 
 
-class Transformer_on_visual(nn.Module):
-    def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None,need_weights: bool = True):
-        super().__init__()
-        self.width = width
-        self.layers = layers
-        self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for _ in range(layers)])
-
-    def forward(self, x, feature_list):
-        idx = 0
-        out_tokens = []
-        for r in self.resblocks:
-            idx += 1
-            x = r(x)
-            if idx in feature_list:
-                    if isinstance(x, list):
-                        out_tokens.append(x[0])
-                    else:
-                        out_tokens.append(x)
-        return  x, out_tokens
-
-
 class Transformer(nn.Module):
-    def __init__(self, width: int, layers: int, heads: int, attn_mask: torch.Tensor = None, need_weights: bool = False):
+    def __init__(self, width: int, layers: int, heads: int):
         super().__init__()
         self.width = width
         self.layers = layers
-        self.resblocks = nn.Sequential(*[ResidualAttentionBlock(width, heads, attn_mask) for i in range(layers)])
+        self.resblocks = nn.ModuleList([
+            ResidualAttentionBlock(width, heads) for _ in range(layers)
+        ])
 
-    def forward(self, x: torch.Tensor):
-        return self.resblocks(x)
-
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor = None):
+        for block in self.resblocks:
+            x = block(x, attn_mask=attn_mask)
+        return x
 
 
 class VisionTransformer(nn.Module):
@@ -339,7 +321,7 @@ class VisionTransformer(nn.Module):
         self.class_embedding = nn.Parameter(scale * torch.randn(width))
         self.positional_embedding = nn.Parameter(scale * torch.randn((input_resolution // patch_size) ** 2 + 1, width))
         self.ln_pre = LayerNorm(width)
-        self.transformer = Transformer_on_visual(width, layers, heads)
+        self.transformer = Transformer(width, layers, heads)
         self.attn = None
         self.embed_dim = width
         self.num_heads = heads
@@ -351,7 +333,7 @@ class VisionTransformer(nn.Module):
     def forward(self, x: torch.Tensor,features_list=None):
         # reform the architecture during first inference
         if self.attn == None:
-            # apply architecture surgery on the last 8 blocks
+            # apply architecture surgery on the last 6 blocks
             for i in range(1, 9):  # surgery 7, maskclip 2
                 self.attn = Attention(self.embed_dim, self.embed_dim, self.num_heads, True)
                 self.attn.qkv.weight.data = self.transformer.resblocks[-i].attn.in_proj_weight.clone()
@@ -379,17 +361,12 @@ class VisionTransformer(nn.Module):
         x = self.ln_pre(x)
 
         x = x.permute(1, 0, 2)  # NLD -> LND
-        [x,x_ori],patch_tokens = self.transformer(x,features_list)  # [x,x_ori]
-        # [4,2026,8,1024]
-        patch_token_list = []
-        for patch_token in patch_tokens:
-            patch_token = self.ln_post(patch_token.permute(1, 0, 2)) @ self.proj  # LND -> NLD
-            patch_token_list.append(patch_token)
-
-        return x_ori[0, :, :] @ self.proj, patch_token_list
+        x_ori = self.transformer(x)
+        return x_ori[0, :, :] @ self.proj
 
 
-class TrafficCLIP(nn.Module):
+
+class TrafficCLIPVideo(nn.Module):
     def __init__(self,
                  embed_dim: int,
                  # vision
@@ -423,7 +400,7 @@ class TrafficCLIP(nn.Module):
             width=transformer_width,
             layers=transformer_layers,
             heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
+            #attn_mask=self.build_attention_mask()
         )
 
         self.vocab_size = vocab_size
@@ -434,6 +411,11 @@ class TrafficCLIP(nn.Module):
         self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
         self.logit_scale = nn.Parameter(torch.ones([]) * np.log(1 / 0.07))
         self.initialize_parameters()
+
+
+        self.visual_length = 50
+        self.visual_width=768
+        self.frame_position_embeddings = nn.Embedding(self.visual_length, self.visual_width)
 
 
     def initialize_parameters(self):
@@ -474,6 +456,16 @@ class TrafficCLIP(nn.Module):
         mask.triu_(1)  # zero out the lower diagonal
         return mask
 
+
+    def build_attention_local_mask(self):
+        self.visual_length = 50
+        # lazily create causal attention mask, with full attention between the vision tokens
+        # pytorch uses additive attention mask; fill with -inf
+        mask = torch.empty(self.visual_length, self.visual_length)
+        mask.fill_(float("-inf"))
+        mask.triu_(1)  # zero out the lower diagonal
+        return mask
+
     @property
     def dtype(self):
         return self.visual.conv1.weight.dtype
@@ -485,22 +477,22 @@ class TrafficCLIP(nn.Module):
         cast_dtype = torch.float32
         x = prompts + self.positional_embedding.to(cast_dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x)
+        x = self.transformer(x,attn_mask=self.build_attention_mask())
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)   # [10,77,768]
+        #print(x.shape)
         x = x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] @ self.text_projection # [10,768]
         #print(x.shape)
         return x
 
     def encode_text(self, text):
         x = self.token_embedding(text).type(self.dtype)  # [batch_size, n_ctx, d_model]
+
         x = x + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
-        # x.shape = [batch_size, n_ctx, transformer.width]
-        # take features from the eot embedding (eot_token is the highest number in each sequence)
         x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
         return x
 
@@ -518,6 +510,21 @@ class TrafficCLIP(nn.Module):
         return logits_per_image, logits_per_text
 
 
+    def encode_video(self, images):
+        images = images.to(torch.float)
+        #print("image shape:",images.shape)  [1,100,768]
+        position_ids = torch.arange(self.visual_length, device='cuda')
+        position_ids = position_ids.unsqueeze(0).expand(images.shape[0], -1)
+        #print("position_ids shape:",position_ids.shape) [1,100]
+        frame_position_embeddings = self.frame_position_embeddings(position_ids)
+        #print(frame_position_embeddings.shape) [1,100,768]
+        frame_position_embeddings = frame_position_embeddings.permute(1, 0, 2)
+        images = images.permute(1, 0, 2) + frame_position_embeddings  #[100,1,768]
+        #print(images)
+        x= self.transformer(images,attn_mask=self.build_attention_local_mask())
+        x = x.permute(1, 0, 2)  #[1,100,768]
+        #print(x.shape)
+        return x
 
 
 

@@ -6,10 +6,8 @@ from typing import Union, List
 from pkg_resources import packaging
 
 import torch
-from PIL import Image
 from torchvision.transforms import Compose, Resize, ToTensor, Normalize
 from tqdm import tqdm
-import numpy as np
 
 from .build_model import build_model
 from .simple_tokenizer import SimpleTokenizer as _Tokenizer
@@ -223,7 +221,6 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
         model.float()
 
     return model, _transform(model.input_resolution.item())
-
 
 def get_similarity_map(sm, shape):
     side = int(sm.shape[1] ** 0.5)
