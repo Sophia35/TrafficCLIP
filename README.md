@@ -14,6 +14,7 @@ Download our fine-grained traffic accident dataset from the following Google Dri
 [Google Drive Link](https://drive.google.com/file/d/1snuQ5fn0FA9rEKhvWrBzKqdnwkxYj_7e/view?usp=sharing)
 ### Run TrafficCLIP
 Run the following command to train TrafficCLIP:
+```bash
 python train.py
 
 
