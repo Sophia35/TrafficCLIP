@@ -138,18 +138,18 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
         A torchvision transform that converts a PIL image into a tensor that the returned model can take as its input
     """
     print("name", name)
-    # 检查name是否在预定义的模型列表 _MODELS 中，如果在列表中，则从指定的下载路径下载模型文件。
+    
     if name in _MODELS:
         # model_path = _download(_MODELS[name], download_root or os.path.expanduser("~/.cache/clip"))
         model_path = _download(_MODELS[name], download_root or os.path.expanduser("/remote-home/iot_zhouqihang/root/.cache/clip"))
-    # 如果 name 是一个文件路径，则直接使用该路径。
+  
     elif os.path.isfile(name):
         model_path = name
-    # 都不是抛出异常
+   
     else:
         raise RuntimeError(f"Model {name} not found; available models = {available_models()}")
 
-    # 尝试以JIT格式加载模型 如果加载失败，则尝试以state dict形式加载
+    
     with open(model_path, 'rb') as opened_file:
         try:
             # loading JIT archive
@@ -162,7 +162,6 @@ def load(name: str, device: Union[str, torch.device] = "cuda" if torch.cuda.is_a
                 jit = False
             state_dict = torch.load(opened_file, map_location="cpu")
 
-    # 如果不是 JIT 模型，使用 build_model 函数和加载的 state dict 构建模型，并将模型移至指定设备（device）。
     if not jit:
         model = build_model(name, state_dict or model.state_dict(),details).to(device)
         if str(device) == "cpu":
