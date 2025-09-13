@@ -9,6 +9,8 @@ Existing vision-based traffic accident detection methods typically focus on dete
 
 ## How to Run
 ### Prepare dataset
+Below is an example from our dataset, showing pixel-level accident masks:
+![Dataset Sample](https://github.com/Sophia35/TrafficCLIP/blob/main/dataset.png))
 Download our fine-grained traffic accident dataset from the following Google Drive link and place it under `TrafficCLIP/accident/`:
 [Google Drive Link](https://drive.google.com/file/d/1snuQ5fn0FA9rEKhvWrBzKqdnwkxYj_7e/view?usp=sharing)
 ### Run TrafficCLIP
